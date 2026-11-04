@@ -16,7 +16,9 @@ const envSchema = z.object({
     .max(65535)
     .default(3000),
 
-  APP_NAME: z.string().default("FleetFlow")
+  APP_NAME: z.string().default("FleetFlow"),
+
+  DATABASE_URL: z.string().url()
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
