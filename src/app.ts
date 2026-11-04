@@ -7,6 +7,7 @@ import { errorHandler } from "./middleware/error-handler.js";
 import { validate } from "./middleware/validate.js";
 import { createOrderSchema } from "./modules/orders/order.schema.js";
 import { httpLogger } from "./config/logger.js";
+import authRoutes from "./modules/auth/auth.routes.js";
 
 const app = express();
 
@@ -36,6 +37,8 @@ app.post(
     });
   }
 );
+
+app.use("/api/v1/auth", authRoutes);
 
 // Unknown routes
 app.use((_req, _res, next) => {
