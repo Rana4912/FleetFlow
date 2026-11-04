@@ -18,7 +18,10 @@ const envSchema = z.object({
 
   APP_NAME: z.string().default("FleetFlow"),
 
-  DATABASE_URL: z.string().url()
+  DATABASE_URL: z.string().url(),
+
+  JWT_SECRET: z.string().min(64),
+  JWT_EXPIRES_IN: z.string().default("15m")
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

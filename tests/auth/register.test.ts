@@ -94,3 +94,15 @@ describe("POST /api/v1/auth/register", () => {
     expect(response.status).toBe(400);
   });
 });
+
+it("should reject passwords exceeding 72 UTF-8 bytes", async () => {
+  const response = await request(app)
+    .post("/api/v1/auth/register")
+    .send({
+      name: "Test Customer",
+      email: `long-${randomUUID()}@example.com`,
+      password: "😀".repeat(19)
+    });
+
+  expect(response.status).toBe(400);
+});
