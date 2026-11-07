@@ -11,6 +11,7 @@ import { httpLogger } from "./config/logger.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import customerRoutes from "./modules/customers/customer.routes.js";
 import driverRoutes from "./modules/drivers/driver.routes.js";
+import vehicleRoutes from "./modules/vehicles/vehicle.routes.js";
 
 
 const app = express();
@@ -50,6 +51,7 @@ app.post(
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/customers", customerRoutes);
 app.use("/api/v1/drivers", driverRoutes);
+app.use("/api/v1/vehicles", vehicleRoutes);
 
 // Unknown routes
 app.use((_req, _res, next) => {
