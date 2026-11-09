@@ -23,3 +23,46 @@ export const validate = (schema: ZodType): RequestHandler => {
     next();
   };
 };
+
+export const validateParams = (schema: ZodType): RequestHandler => {
+  return (req, _res, next) => {
+    const result = schema.safeParse(req.params);
+
+    if (!result.success) {
+      next(
+        new AppError(
+          result.error.issues
+            .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+            .join(", "),
+          400
+        )
+      );
+
+      return;
+    }
+
+    next();
+  };
+};
+
+export const validateQuery = (schema: ZodType): RequestHandler => {
+  return (req, res, next) => {
+    const result = schema.safeParse(req.query);
+
+    if (!result.success) {
+      next(
+        new AppError(
+          result.error.issues
+            .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+            .join(", "),
+          400
+        )
+      );
+
+      return;
+    }
+
+    res.locals.validatedQuery = result.data;
+    next();
+  };
+};

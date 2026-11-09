@@ -5,14 +5,14 @@ import cookieParser from "cookie-parser";
 
 import { AppError } from "./shared/errors/app-error.js";
 import { errorHandler } from "./middleware/error-handler.js";
-import { validate } from "./middleware/validate.js";
-import { createOrderSchema } from "./modules/orders/order.schema.js";
 import { httpLogger } from "./config/logger.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import customerRoutes from "./modules/customers/customer.routes.js";
 import driverRoutes from "./modules/drivers/driver.routes.js";
 import vehicleRoutes from "./modules/vehicles/vehicle.routes.js";
 import warehouseRoutes from "./modules/warehouses/warehouse.routes.js";
+import orderRoutes from "./modules/orders/order.routes.js";
+import assignmentRoutes from "./modules/assignments/assignment.routes.js";
 
 
 const app = express();
@@ -36,17 +36,6 @@ app.get("/api/v1/health", (_req, res) => {
   });
 });
 
-app.post(
-  "/api/v1/orders",
-  validate(createOrderSchema),
-  (req, res) => {
-    res.status(201).json({
-      success: true,
-      message: "Order data validated successfully",
-      data: req.body
-    });
-  }
-);
 
 
 app.use("/api/v1/auth", authRoutes);
@@ -54,6 +43,8 @@ app.use("/api/v1/customers", customerRoutes);
 app.use("/api/v1/drivers", driverRoutes);
 app.use("/api/v1/vehicles", vehicleRoutes);
 app.use("/api/v1/warehouses", warehouseRoutes);
+app.use("/api/v1/orders", orderRoutes);
+app.use("/api/v1/assignments", assignmentRoutes);
 
 // Unknown routes
 app.use((_req, _res, next) => {

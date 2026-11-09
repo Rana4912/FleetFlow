@@ -46,5 +46,6 @@ export async function createDriverProfile(
 
       throw new AppError("Driver profile or license already exists", 409);
     }
+    throw error;
   }
 }
