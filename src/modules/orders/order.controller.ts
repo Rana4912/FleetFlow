@@ -1,6 +1,11 @@
 import type { Response } from "express";
 import type { AuthenticatedRequest } from "../../middleware/authenticate.js";
-import { createOrder, getOrderById, listOrders } from "./order.service.js";
+import {
+  createOrder,
+  getOrderById,
+  listOrders,
+  updateOrderStatus
+} from "./order.service.js";
 import { AppError } from "../../shared/errors/app-error.js";
 
 export async function createOrderController(
@@ -67,5 +72,25 @@ export async function listOrdersController(
     success: true,
     message: "Orders retrieved successfully",
     data: result
+  });
+}
+
+export async function updateOrderStatusController(
+  req: AuthenticatedRequest,
+  res: Response
+) {
+  const result = await updateOrderStatus(
+    req.params.orderId as string,
+    req.user!.id,
+    req.user!.role,
+    req.body
+  );
+
+  res.status(200).json({
+    success: true,
+    message: "Order status updated successfully",
+    data: {
+      order: result
+    }
   });
 }

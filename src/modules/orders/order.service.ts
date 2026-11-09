@@ -1,6 +1,6 @@
 import { prisma } from "../../infrastructure/database/prisma.js";
 import { AppError } from "../../shared/errors/app-error.js";
-import type { CreateOrderInput } from "./order.schema.js";
+import type { CreateOrderInput, UpdateOrderStatusInput } from "./order.schema.js";
 import type { ListOrdersQuery } from "./order.schema.js";
 
 export async function createOrder(
@@ -153,4 +153,108 @@ export async function listOrders(
       totalPages: Math.ceil(total / limit)
     }
   };
+}
+
+const allowedTransitions: Record<string, string[]> = {
+  CREATED: ["CONFIRMED", "CANCELLED"],
+  CONFIRMED: ["ASSIGNED", "CANCELLED"],
+  ASSIGNED: ["PICKED_UP", "CANCELLED"],
+  PICKED_UP: ["IN_TRANSIT", "FAILED"],
+  IN_TRANSIT: ["DELIVERED", "FAILED"],
+  DELIVERED: [],
+  FAILED: [],
+  CANCELLED: []
+};
+
+export async function updateOrderStatus(
+  orderId: string,
+  userId: string,
+  role: "CUSTOMER" | "DRIVER" | "ADMIN",
+  input: UpdateOrderStatusInput
+) {
+  return prisma.$transaction(async (tx) => {
+    // 1. Find the order.
+    const order = await tx.deliveryOrder.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        status: true,
+        customer: {
+          select: {
+            userId: true
+          }
+        }
+      }
+    });
+
+    if (!order) {
+      throw new AppError("Order not found", 404);
+    }
+
+    // 2. Check customer ownership.
+    if (
+      role === "CUSTOMER" &&
+      order.customer.userId !== userId
+    ) {
+      throw new AppError("Order not found", 404);
+    }
+
+    // 3. Check role permissions.
+    const customerCanCancel =
+      role === "CUSTOMER" &&
+      input.status === "CANCELLED";
+
+    const adminCanUpdate = role === "ADMIN";
+
+    if (!customerCanCancel && !adminCanUpdate) {
+      throw new AppError("Forbidden", 403);
+    }
+
+    // 4. Check whether the transition is allowed.
+    const allowed = allowedTransitions[order.status] ?? [];
+
+    if (!allowed.includes(input.status)) {
+      throw new AppError(
+        `Cannot change order status from ${order.status} to ${input.status}`,
+        409
+      );
+    }
+
+    // 5. Update only if the current status has not changed.
+    const result = await tx.deliveryOrder.updateMany({
+      where: {
+        id: orderId,
+        status: order.status
+      },
+      data: {
+        status: input.status
+      }
+    });
+
+    if (result.count !== 1) {
+      throw new AppError(
+        "Order status was modified by another request. Please retry.",
+        409
+      );
+    }
+
+    // 6. Record the status transition.
+    await tx.orderStatusHistory.create({
+      data: {
+        orderId,
+        status: input.status,
+        note: `Status changed from ${order.status} to ${input.status}`
+      }
+    });
+
+    // 7. Return the updated order.
+    return tx.deliveryOrder.findUniqueOrThrow({
+      where: { id: orderId },
+      select: {
+        id: true,
+        status: true,
+        updatedAt: true
+      }
+    });
+  });
 }

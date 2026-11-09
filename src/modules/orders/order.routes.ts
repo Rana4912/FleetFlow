@@ -9,13 +9,15 @@ import {
 import {
   createOrderSchema,
   orderIdSchema,
-  listOrdersQuerySchema
+  listOrdersQuerySchema,
+  updateOrderStatusSchema
 } from "./order.schema.js";
 
 import {
   createOrderController,
   getOrderByIdController,
-  listOrdersController
+  listOrdersController,
+  updateOrderStatusController
 } from "./order.controller.js";
 
 const router = Router();
@@ -42,6 +44,15 @@ router.get(
   authorize("CUSTOMER", "ADMIN"),
   validateParams(orderIdSchema),
   getOrderByIdController
+);
+
+router.patch(
+  "/:orderId/status",
+  authenticate,
+  authorize("CUSTOMER", "ADMIN"),
+  validateParams(orderIdSchema),
+  validate(updateOrderStatusSchema),
+  updateOrderStatusController
 );
 
 export default router;

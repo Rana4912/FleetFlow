@@ -72,3 +72,20 @@ export const listOrdersQuerySchema = z.object({
 }).strict();
 
 export type ListOrdersQuery = z.infer<typeof listOrdersQuerySchema>;
+
+
+export const updateOrderStatusSchema = z.object({
+  status: z.enum([
+    "CONFIRMED",
+    "ASSIGNED",
+    "PICKED_UP",
+    "IN_TRANSIT",
+    "DELIVERED",
+    "FAILED",
+    "CANCELLED"
+  ])
+}).strict();
+
+export type UpdateOrderStatusInput = z.infer<
+  typeof updateOrderStatusSchema
+>;
