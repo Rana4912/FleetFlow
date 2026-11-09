@@ -108,12 +108,6 @@ describe("Order Lifecycle API", () => {
     confirmedOrderId = orders[2].id;
     cancelledOrderId = orders[3].id;
 
-    // Prepare an order for the invalid-transition test.
-    await prisma.deliveryOrder.update({
-      where: { id: confirmedOrderId },
-      data: { status: "CONFIRMED" }
-    });
-
     // Prepare a terminal order.
     await prisma.deliveryOrder.update({
       where: { id: cancelledOrderId },
@@ -205,23 +199,45 @@ describe("Order Lifecycle API", () => {
     expect(response.status).toBe(404);
   });
 
-  it("should allow an admin to confirm an order", async () => {
-    const response = await request(app)
+  it("should allow an admin to confirm an order but reject direct assignment", async () => {
+    // First, admin confirms the CREATED order.
+    const confirmResponse = await request(app)
+      .patch(`/api/v1/orders/${confirmedOrderId}/status`)
+      .set("Cookie", `accessToken=${adminToken}`)
+      .send({ status: "CONFIRMED" });
+
+    expect(confirmResponse.status).toBe(200);
+    expect(confirmResponse.body.data.order.status).toBe("CONFIRMED");
+
+    // Admin must not bypass the assignment workflow.
+    const assignmentResponse = await request(app)
       .patch(`/api/v1/orders/${confirmedOrderId}/status`)
       .set("Cookie", `accessToken=${adminToken}`)
       .send({ status: "ASSIGNED" });
 
-    expect(response.status).toBe(200);
-    expect(response.body.data.order.status).toBe("ASSIGNED");
-  });
+    expect(assignmentResponse.status).toBe(409);
 
-  it("should reject invalid status transitions", async () => {
-    const response = await request(app)
-      .patch(`/api/v1/orders/${cancelledOrderId}/status`)
-      .set("Cookie", `accessToken=${adminToken}`)
-      .send({ status: "CONFIRMED" });
+    // Verify that the order remains CONFIRMED.
+    const order = await prisma.deliveryOrder.findUniqueOrThrow({
+      where: { id: confirmedOrderId }
+    });
 
-    expect(response.status).toBe(409);
+    expect(order.status).toBe("CONFIRMED");
+
+    // Verify that no assignment was created.
+    const assignment = await prisma.deliveryAssignment.findFirst({
+      where: { orderId: confirmedOrderId }
+    });
+
+    expect(assignment).toBeNull();
+
+    // Verify the status history contains only the confirmation.
+    const history = await prisma.orderStatusHistory.findMany({
+      where: { orderId: confirmedOrderId }
+    });
+
+    expect(history).toHaveLength(1);
+    expect(history[0].status).toBe("CONFIRMED");
   });
 
   it("should reject drivers until assignment authorization is implemented", async () => {

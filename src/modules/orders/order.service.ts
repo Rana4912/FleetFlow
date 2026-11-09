@@ -157,10 +157,10 @@ export async function listOrders(
 
 const allowedTransitions: Record<string, string[]> = {
   CREATED: ["CONFIRMED", "CANCELLED"],
-  CONFIRMED: ["ASSIGNED", "CANCELLED"],
-  ASSIGNED: ["PICKED_UP", "CANCELLED"],
-  PICKED_UP: ["IN_TRANSIT", "FAILED"],
-  IN_TRANSIT: ["DELIVERED", "FAILED"],
+  CONFIRMED: ["CANCELLED"],
+  ASSIGNED: [],
+  PICKED_UP: [],
+  IN_TRANSIT: [],
   DELIVERED: [],
   FAILED: [],
   CANCELLED: []
