@@ -44,3 +44,31 @@ export type CreateOrderInput = z.infer<
 export const orderIdSchema = z.object({
   orderId: z.uuid("Invalid order ID")
 });
+
+export const listOrdersQuerySchema = z.object({
+  page: z.coerce.number()
+    .int("Page must be an integer")
+    .min(1, "Page must be at least 1")
+    .default(1),
+
+  limit: z.coerce.number()
+    .int("Limit must be an integer")
+    .min(1, "Limit must be at least 1")
+    .max(100, "Limit cannot exceed 100")
+    .default(10),
+
+  status: z.enum([
+    "CREATED",
+    "CONFIRMED",
+    "ASSIGNED",
+    "PICKED_UP",
+    "IN_TRANSIT",
+    "DELIVERED",
+    "FAILED",
+    "CANCELLED"
+  ]).optional(),
+
+  sortOrder: z.enum(["asc", "desc"]).default("desc")
+}).strict();
+
+export type ListOrdersQuery = z.infer<typeof listOrdersQuerySchema>;

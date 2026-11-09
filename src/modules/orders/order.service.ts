@@ -1,6 +1,7 @@
 import { prisma } from "../../infrastructure/database/prisma.js";
 import { AppError } from "../../shared/errors/app-error.js";
 import type { CreateOrderInput } from "./order.schema.js";
+import type { ListOrdersQuery } from "./order.schema.js";
 
 export async function createOrder(
   userId: string,
@@ -89,4 +90,67 @@ export async function getOrderById(
   }
 
   return order;
+}
+
+export async function listOrders(
+  userId: string,
+  role: "CUSTOMER" | "ADMIN",
+  query: ListOrdersQuery
+) {
+  const { page, limit, status, sortOrder } = query;
+
+  // Calculate how many records to skip.
+  const skip = (page - 1) * limit;
+
+  // Build database filters.
+  const where = {
+    ...(role === "CUSTOMER"
+      ? {
+          customer: {
+            userId
+          }
+        }
+      : {}),
+    ...(status ? { status } : {})
+  };
+
+  // Fetch the requested page and total count concurrently.
+  const [orders, total] = await Promise.all([
+    prisma.deliveryOrder.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: [
+        { createdAt: sortOrder },
+        { id: "desc" }
+      ],
+      select: {
+        id: true,
+        customerId: true,
+        pickupAddress: true,
+        deliveryAddress: true,
+        recipientName: true,
+        recipientPhone: true,
+        weightKg: true,
+        deadline: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    }),
+
+    prisma.deliveryOrder.count({
+      where
+    })
+  ]);
+
+  return {
+    orders,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit)
+    }
+  };
 }

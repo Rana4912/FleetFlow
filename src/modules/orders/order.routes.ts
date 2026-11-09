@@ -3,16 +3,19 @@ import { authenticate } from "../../middleware/authenticate.js";
 import { authorize } from "../../middleware/authorize.js";
 import {
   validate,
-  validateParams
+  validateParams,
+  validateQuery
 } from "../../middleware/validate.js";
 import {
   createOrderSchema,
-  orderIdSchema
+  orderIdSchema,
+  listOrdersQuerySchema
 } from "./order.schema.js";
 
 import {
   createOrderController,
-  getOrderByIdController
+  getOrderByIdController,
+  listOrdersController
 } from "./order.controller.js";
 
 const router = Router();
@@ -23,6 +26,14 @@ router.post(
   authorize("CUSTOMER"),
   validate(createOrderSchema),
   createOrderController
+);
+
+router.get(
+  "/",
+  authenticate,
+  authorize("CUSTOMER", "ADMIN"),
+  validateQuery(listOrdersQuerySchema),
+  listOrdersController
 );
 
 router.get(
