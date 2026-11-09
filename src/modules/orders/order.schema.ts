@@ -40,3 +40,7 @@ export const createOrderSchema = z.object({
 export type CreateOrderInput = z.infer<
   typeof createOrderSchema
 >;
+
+export const orderIdSchema = z.object({
+  orderId: z.uuid("Invalid order ID")
+});

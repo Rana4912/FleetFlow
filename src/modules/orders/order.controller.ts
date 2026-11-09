@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import type { AuthenticatedRequest } from "../../middleware/authenticate.js";
-import { createOrder } from "./order.service.js";
+import { createOrder, getOrderById } from "./order.service.js";
+import { AppError } from "../../shared/errors/app-error.js";
 
 export async function createOrderController(
   req: AuthenticatedRequest,
@@ -14,6 +15,31 @@ export async function createOrderController(
   res.status(201).json({
     success: true,
     message: "Delivery order created successfully",
+    data: {
+      order
+    }
+  });
+}
+
+export async function getOrderByIdController(
+  req: AuthenticatedRequest,
+  res: Response
+) {
+  if (
+    req.user!.role !== "CUSTOMER" &&
+    req.user!.role !== "ADMIN"
+  ) {
+    throw new AppError("Forbidden", 403);
+  }
+  const order = await getOrderById(
+    req.user!.id,
+    req.user!.role,
+    req.params.orderId as string
+  );
+
+  res.status(200).json({
+    success: true,
+    message: "Order retrieved successfully",
     data: {
       order
     }

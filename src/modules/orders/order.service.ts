@@ -52,3 +52,41 @@ export async function createOrder(
 
   return order;
 }
+
+export async function getOrderById(
+  userId: string,
+  role: "CUSTOMER" | "ADMIN",
+  orderId: string
+) {
+  const order = await prisma.deliveryOrder.findFirst({
+    where: {
+      id: orderId,
+      ...(role === "CUSTOMER"
+        ? {
+            customer: {
+              userId
+            }
+          }
+        : {})
+    },
+    select: {
+      id: true,
+      customerId: true,
+      pickupAddress: true,
+      deliveryAddress: true,
+      recipientName: true,
+      recipientPhone: true,
+      weightKg: true,
+      deadline: true,
+      status: true,
+      createdAt: true,
+      updatedAt: true
+    }
+  });
+
+  if (!order) {
+    throw new AppError("Order not found", 404);
+  }
+
+  return order;
+}
