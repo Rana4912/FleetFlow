@@ -7,3 +7,10 @@ export class AppError extends Error {
     this.name = "AppError";
   }
 }
+
+export class ResourceConflictError extends AppError {
+  constructor(message: string) {
+    super(message, 409);
+    this.name = "ResourceConflictError";
+  }
+}

@@ -13,7 +13,7 @@ import vehicleRoutes from "./modules/vehicles/vehicle.routes.js";
 import warehouseRoutes from "./modules/warehouses/warehouse.routes.js";
 import orderRoutes from "./modules/orders/order.routes.js";
 import assignmentRoutes from "./modules/assignments/assignment.routes.js";
-
+import dispatchRoutes from "./modules/dispatch/dispatch.routes.js";
 
 const app = express();
 
@@ -45,6 +45,7 @@ app.use("/api/v1/vehicles", vehicleRoutes);
 app.use("/api/v1/warehouses", warehouseRoutes);
 app.use("/api/v1/orders", orderRoutes);
 app.use("/api/v1/assignments", assignmentRoutes);
+app.use("/api/v1/dispatch", dispatchRoutes);
 
 // Unknown routes
 app.use((_req, _res, next) => {
