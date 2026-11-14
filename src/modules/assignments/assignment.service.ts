@@ -1,8 +1,12 @@
 
 import { prisma } from "../../infrastructure/database/prisma.js";
-import { AppError } from "../../shared/errors/app-error.js";
+import {
+  AppError,
+  ResourceConflictError
+} from "../../shared/errors/app-error.js";
 import type { CreateAssignmentInput } from "./assignment.schema.js";
 import type { UpdateAssignmentStatusInput } from "./assignment.schema.js";
+
 
 export async function createAssignment(input: CreateAssignmentInput) {
   try {
@@ -33,7 +37,12 @@ export async function createAssignment(input: CreateAssignmentInput) {
         where: { id: input.driverId },
         select: {
           id: true,
-          status: true
+          status: true,
+          user: {
+            select: {
+              isActive: true
+            }
+          }
         }
       });
 
@@ -41,8 +50,12 @@ export async function createAssignment(input: CreateAssignmentInput) {
         throw new AppError("Driver not found", 404);
       }
 
+      if (!driver.user.isActive) {
+        throw new ResourceConflictError("Driver account is inactive");
+      }
+
       if (driver.status !== "AVAILABLE") {
-        throw new AppError("Driver is not available", 409);
+        throw new ResourceConflictError("Driver is not available");
       }
 
       // 3. Atomically claim the driver.
@@ -57,9 +70,8 @@ export async function createAssignment(input: CreateAssignmentInput) {
       });
 
       if (driverClaim.count !== 1) {
-        throw new AppError(
-          "Driver is no longer available. Please retry.",
-          409
+        throw new ResourceConflictError(
+          "Driver is no longer available. Please retry."
         );
       }
 
@@ -78,14 +90,13 @@ export async function createAssignment(input: CreateAssignmentInput) {
       }
 
       if (vehicle.status !== "AVAILABLE") {
-        throw new AppError("Vehicle is not available", 409);
+        throw new ResourceConflictError("Vehicle is not available");
       }
 
       // 5. Verify vehicle capacity.
       if (vehicle.capacityKg.lessThan(order.weightKg)) {
-        throw new AppError(
-          "Vehicle capacity is insufficient for this order",
-          409
+        throw new ResourceConflictError(
+          "Vehicle capacity is insufficient for this order"
         );
       }
 
@@ -104,9 +115,8 @@ export async function createAssignment(input: CreateAssignmentInput) {
       });
 
       if (vehicleClaim.count !== 1) {
-        throw new AppError(
-          "Vehicle is no longer available or has insufficient capacity",
-          409
+        throw new ResourceConflictError(
+          "Vehicle is no longer available or has insufficient capacity"
         );
       }
 
@@ -164,9 +174,8 @@ export async function createAssignment(input: CreateAssignmentInput) {
       "code" in error &&
       error.code === "P2002"
     ) {
-      throw new AppError(
-        "Order, driver, or vehicle already has an active assignment",
-        409
+      throw new ResourceConflictError(
+        "Order, driver, or vehicle already has an active assignment"
       );
     }
 
