@@ -4,16 +4,27 @@ import {
   it,
   expect,
   beforeAll,
-  afterAll
+  afterAll,
+  beforeEach,
+  vi
 } from "vitest";
 
 import request from "supertest";
 import { randomUUID } from "node:crypto";
 
+const { autoDispatchOrderMock } = vi.hoisted(() => ({
+  autoDispatchOrderMock: vi.fn()
+}));
+
+vi.mock("../../src/modules/dispatch/dispatch.service.js", () => ({
+  autoDispatchOrder: autoDispatchOrderMock
+}));
+
 import app from "../../src/app.js";
 import { prisma } from "../../src/infrastructure/database/prisma.js";
 import { hashPassword } from "../../src/modules/auth/password.js";
 import { generateAccessToken } from "../../src/modules/auth/token.js";
+import { AppError } from "../../src/shared/errors/app-error.js";
 
 describe("Automated Dispatch API", () => {
   const suffix = randomUUID();
@@ -137,6 +148,11 @@ describe("Automated Dispatch API", () => {
     });
   });
 
+  beforeEach(() => {
+    autoDispatchOrderMock.mockReset();
+    autoDispatchOrderMock.mockResolvedValue({});
+  });
+
   afterAll(async () => {
     await prisma.deliveryAssignment.deleteMany({
       where: { orderId: { in: orderIds } }
@@ -171,7 +187,6 @@ describe("Automated Dispatch API", () => {
     });
   });
 
-
   it("should allow an admin to access the dispatch endpoint", async () => {
     const scenario = await createScenario();
 
@@ -179,6 +194,10 @@ describe("Automated Dispatch API", () => {
 
     expect(response.status).toBe(201);
     expect(response.body.success).toBe(true);
+
+    expect(autoDispatchOrderMock).toHaveBeenCalledWith(
+      scenario.orderId
+    );
   });
 
   it("should reject a customer from accessing dispatch", async () => {
@@ -190,14 +209,15 @@ describe("Automated Dispatch API", () => {
     );
 
     expect(response.status).toBe(403);
+    expect(autoDispatchOrderMock).not.toHaveBeenCalled();
   });
 
   it("should reject an invalid order ID", async () => {
     const response = await dispatch("invalid-order-id");
 
     expect(response.status).toBe(400);
+    expect(autoDispatchOrderMock).not.toHaveBeenCalled();
   });
-
 
   it("should reject unauthenticated requests", async () => {
     const scenario = await createScenario();
@@ -206,6 +226,7 @@ describe("Automated Dispatch API", () => {
       .post(`/api/v1/dispatch/${scenario.orderId}`);
 
     expect(response.status).toBe(401);
+    expect(autoDispatchOrderMock).not.toHaveBeenCalled();
   });
 
   it("should return 409 when no eligible drivers exist", async () => {
@@ -213,15 +234,12 @@ describe("Automated Dispatch API", () => {
       driverStatus: "OFFLINE"
     });
 
-    // Make every driver created by this test file ineligible.
-    await prisma.driver.updateMany({
-      where: {
-        id: { in: driverIds }
-      },
-      data: {
-        status: "OFFLINE"
-      }
-    });
+    autoDispatchOrderMock.mockRejectedValueOnce(
+      new AppError(
+        "No eligible driver and vehicle combinations found",
+        409
+      )
+    );
 
     const response = await dispatch(scenario.orderId);
 
@@ -231,20 +249,17 @@ describe("Automated Dispatch API", () => {
     );
   });
 
- it("should return 409 when no vehicle has sufficient capacity", async () => {
+  it("should return 409 when no vehicle has sufficient capacity", async () => {
     const scenario = await createScenario({
       capacityKg: 20
     });
 
-    // Make every vehicle created by this test file too small.
-    await prisma.vehicle.updateMany({
-      where: {
-        id: { in: vehicleIds }
-      },
-      data: {
-        capacityKg: 20
-      }
-    });
+    autoDispatchOrderMock.mockRejectedValueOnce(
+      new AppError(
+        "No eligible driver and vehicle combinations found",
+        409
+      )
+    );
 
     const response = await dispatch(scenario.orderId);
 
@@ -257,10 +272,12 @@ describe("Automated Dispatch API", () => {
   it("should reject dispatching an order that is not CONFIRMED", async () => {
     const scenario = await createScenario();
 
-    await prisma.deliveryOrder.update({
-      where: { id: scenario.orderId },
-      data: { status: "CREATED" }
-    });
+    autoDispatchOrderMock.mockRejectedValueOnce(
+      new AppError(
+        "Only confirmed orders can be dispatched",
+        409
+      )
+    );
 
     const response = await dispatch(scenario.orderId);
 
@@ -269,5 +286,4 @@ describe("Automated Dispatch API", () => {
       "Only confirmed orders can be dispatched"
     );
   });
-
 });
