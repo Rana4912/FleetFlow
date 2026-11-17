@@ -5,6 +5,37 @@ export interface DispatchOrder {
   pickupAddress: string;
   deliveryAddress: string;
   deadline: Date | null;
+
+  pickupLocation: {
+    latitude: number | null;
+    longitude: number | null;
+    geocodingStatus: "PENDING" | "SUCCEEDED" | "FAILED";
+  } | null;
+
+  deliveryLocation: {
+    latitude: number | null;
+    longitude: number | null;
+    geocodingStatus: "PENDING" | "SUCCEEDED" | "FAILED";
+  } | null;
+}export interface DispatchOrder {
+  id: string;
+  status: "CONFIRMED";
+  weightKg: number;
+  pickupAddress: string;
+  deliveryAddress: string;
+  deadline: Date | null;
+
+  pickupLocation: {
+    latitude: number | null;
+    longitude: number | null;
+    geocodingStatus: "PENDING" | "SUCCEEDED" | "FAILED";
+  } | null;
+
+  deliveryLocation: {
+    latitude: number | null;
+    longitude: number | null;
+    geocodingStatus: "PENDING" | "SUCCEEDED" | "FAILED";
+  } | null;
 }
 
 export interface EligibleDriver {

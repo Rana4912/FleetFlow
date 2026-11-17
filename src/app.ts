@@ -14,6 +14,7 @@ import warehouseRoutes from "./modules/warehouses/warehouse.routes.js";
 import orderRoutes from "./modules/orders/order.routes.js";
 import assignmentRoutes from "./modules/assignments/assignment.routes.js";
 import dispatchRoutes from "./modules/dispatch/dispatch.routes.js";
+import locationRoutes from "./modules/locations/location.routes.js";
 
 const app = express();
 
@@ -43,6 +44,7 @@ app.use("/api/v1/customers", customerRoutes);
 app.use("/api/v1/drivers", driverRoutes);
 app.use("/api/v1/vehicles", vehicleRoutes);
 app.use("/api/v1/warehouses", warehouseRoutes);
+app.use("/api/v1/locations", locationRoutes);
 app.use("/api/v1/orders", orderRoutes);
 app.use("/api/v1/assignments", assignmentRoutes);
 app.use("/api/v1/dispatch", dispatchRoutes);

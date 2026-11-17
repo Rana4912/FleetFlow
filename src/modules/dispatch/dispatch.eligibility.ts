@@ -18,7 +18,25 @@ export async function findEligibleResources(
       weightKg: true,
       pickupAddress: true,
       deliveryAddress: true,
-      deadline: true
+      deadline: true,
+
+      // Pickup location coordinates
+      pickupLocation: {
+        select: {
+          latitude: true,
+          longitude: true,
+          geocodingStatus: true
+        }
+      },
+
+      // Delivery location coordinates
+      deliveryLocation: {
+        select: {
+          latitude: true,
+          longitude: true,
+          geocodingStatus: true
+        }
+      }
     }
   });
 
@@ -93,7 +111,31 @@ export async function findEligibleResources(
       weightKg: Number(order.weightKg),
       pickupAddress: order.pickupAddress,
       deliveryAddress: order.deliveryAddress,
-      deadline: order.deadline
+      deadline: order.deadline,
+
+      pickupLocation: order.pickupLocation
+        ? {
+          latitude: order.pickupLocation.latitude
+            ? Number(order.pickupLocation.latitude)
+            : null,
+          longitude: order.pickupLocation.longitude
+            ? Number(order.pickupLocation.longitude)
+            : null,
+          geocodingStatus: order.pickupLocation.geocodingStatus
+        }
+        : null,
+
+      deliveryLocation: order.deliveryLocation
+        ? {
+          latitude: order.deliveryLocation.latitude
+            ? Number(order.deliveryLocation.latitude)
+            : null,
+          longitude: order.deliveryLocation.longitude
+            ? Number(order.deliveryLocation.longitude)
+            : null,
+          geocodingStatus: order.deliveryLocation.geocodingStatus
+        }
+        : null
     },
 
     drivers: drivers.map((driver) => ({
