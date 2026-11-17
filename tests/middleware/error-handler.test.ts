@@ -9,6 +9,7 @@ import {
 import { errorHandler } from "../../src/middleware/error-handler.js";
 import { AppError } from "../../src/shared/errors/app-error.js";
 import { GeocodingProviderError } from "../../src/infrastructure/geocoding/geocoding.errors.js";
+import { RoutingProviderError } from "../../src/infrastructure/routing/routing.errors.js";
 
 describe("ErrorHandler", () => {
   const createMocks = () => {
@@ -99,6 +100,39 @@ describe("ErrorHandler", () => {
     expect(res.json).toHaveBeenCalledWith({
       success: false,
       message: "Internal server error"
+    });
+  });
+  it("should return 503 when routing provider is unavailable", () => {
+    const { res, next } = createMocks();
+
+    const error = new RoutingProviderError(
+      "Provider unavailable",
+      "PROVIDER_UNAVAILABLE"
+    );
+
+    errorHandler(error, {} as never, res as never, next);
+
+    expect(res.status).toHaveBeenCalledWith(503);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      message: "Routing service is temporarily unavailable"
+    });
+  });
+
+  it("should return 502 when routing provider returns invalid response", () => {
+    const { res, next } = createMocks();
+
+    const error = new RoutingProviderError(
+      "Invalid response",
+      "INVALID_PROVIDER_RESPONSE"
+    );
+
+    errorHandler(error, {} as never, res as never, next);
+
+    expect(res.status).toHaveBeenCalledWith(502);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      message: "Routing service returned an invalid response"
     });
   });
 });

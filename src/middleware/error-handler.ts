@@ -1,6 +1,7 @@
 import type { ErrorRequestHandler } from "express";
 import { AppError } from "../shared/errors/app-error.js";
 import { GeocodingProviderError } from "../infrastructure/geocoding/geocoding.errors.js";
+import { RoutingProviderError } from "../infrastructure/routing/routing.errors.js";
 
 
 export const errorHandler: ErrorRequestHandler = (
@@ -9,6 +10,21 @@ export const errorHandler: ErrorRequestHandler = (
   res,
   _next
 ) => {
+  if (error instanceof RoutingProviderError) {
+    if (error.code === "PROVIDER_UNAVAILABLE") {
+      res.status(503).json({
+        success: false,
+        message: "Routing service is temporarily unavailable"
+      });
+      return;
+    }
+
+    res.status(502).json({
+      success: false,
+      message: "Routing service returned an invalid response"
+    });
+    return;
+  }
   if (error instanceof GeocodingProviderError) {
     const statusCode =
       error.code === "PROVIDER_UNAVAILABLE" ? 503 : 502;

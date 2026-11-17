@@ -1,3 +1,4 @@
+
 import {
   describe,
   it,
@@ -33,6 +34,7 @@ describe("Order Creation API", () => {
   let adminToken: string;
 
   const createdOrderIds: string[] = [];
+  const createdLocationIds: string[] = [];
 
   const validOrder = {
     pickupAddress: "Salt Lake Sector V, Kolkata",
@@ -90,7 +92,6 @@ describe("Order Creation API", () => {
 
     adminUserId = admin.id;
 
-    // Create a profile only for the first customer.
     const customerProfile = await prisma.customer.create({
       data: {
         userId: customerUserId
@@ -121,11 +122,20 @@ describe("Order Creation API", () => {
   });
 
   afterAll(async () => {
-    // Delete orders before deleting customer profiles.
+    // Delete orders first because they reference locations.
     await prisma.deliveryOrder.deleteMany({
       where: {
         id: {
           in: createdOrderIds
+        }
+      }
+    });
+
+    // Now the locations can safely be deleted.
+    await prisma.location.deleteMany({
+      where: {
+        id: {
+          in: createdLocationIds
         }
       }
     });
@@ -190,7 +200,7 @@ describe("Order Creation API", () => {
     );
   });
 
-  it("should create an order successfully", async () => {
+  it("should create an order with pickup and delivery locations", async () => {
     const response = await request(app)
       .post("/api/v1/orders")
       .set("Cookie", `accessToken=${customerToken}`)
@@ -211,7 +221,33 @@ describe("Order Creation API", () => {
     expect(Number(order.weightKg)).toBe(5);
     expect(order.status).toBe("CREATED");
 
-    // Verify persistence in PostgreSQL.
+    // Verify pickup location.
+    expect(order.pickupLocation).toBeDefined();
+    expect(order.pickupLocation.inputAddress).toBe(
+      validOrder.pickupAddress
+    );
+    expect(order.pickupLocation.geocodingStatus).toBe("PENDING");
+    expect(order.pickupLocation.latitude).toBeNull();
+    expect(order.pickupLocation.longitude).toBeNull();
+
+    // Verify delivery location.
+    expect(order.deliveryLocation).toBeDefined();
+    expect(order.deliveryLocation.inputAddress).toBe(
+      validOrder.deliveryAddress
+    );
+    expect(order.deliveryLocation.geocodingStatus).toBe("PENDING");
+    expect(order.deliveryLocation.latitude).toBeNull();
+    expect(order.deliveryLocation.longitude).toBeNull();
+
+    // The two locations must be separate records.
+    expect(order.pickupLocation.id).not.toBe(order.deliveryLocation.id);
+
+    createdLocationIds.push(
+      order.pickupLocation.id,
+      order.deliveryLocation.id
+    );
+
+    // Verify persistence and foreign-key relationships.
     const savedOrder = await prisma.deliveryOrder.findUnique({
       where: {
         id: order.id
@@ -221,6 +257,20 @@ describe("Order Creation API", () => {
     expect(savedOrder).not.toBeNull();
     expect(savedOrder?.customerId).toBe(customerId);
     expect(savedOrder?.status).toBe("CREATED");
+
+    expect(savedOrder?.pickupLocationId).toBe(order.pickupLocation.id);
+    expect(savedOrder?.deliveryLocationId).toBe(order.deliveryLocation.id);
+
+    // Verify both Location records exist in PostgreSQL.
+    const savedLocations = await prisma.location.findMany({
+      where: {
+        id: {
+          in: createdLocationIds
+        }
+      }
+    });
+
+    expect(savedLocations).toHaveLength(2);
   });
 
   it("should reject invalid order weight", async () => {

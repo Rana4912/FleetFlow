@@ -1,3 +1,4 @@
+
 import {
   describe,
   it,
@@ -30,6 +31,7 @@ describe("Warehouse Management API", () => {
   let driverToken: string;
 
   const createdWarehouseIds: string[] = [];
+  const createdLocationIds: string[] = [];
 
   beforeAll(async () => {
     const passwordHash = await hashPassword("StrongPassword123");
@@ -84,12 +86,15 @@ describe("Warehouse Management API", () => {
   });
 
   afterAll(async () => {
-    // Delete warehouses created by these tests.
     await prisma.warehouse.deleteMany({
       where: {
-        id: {
-          in: createdWarehouseIds
-        }
+        id: { in: createdWarehouseIds }
+      }
+    });
+
+    await prisma.location.deleteMany({
+      where: {
+        id: { in: createdLocationIds }
       }
     });
 
@@ -163,9 +168,22 @@ describe("Warehouse Management API", () => {
     expect(Number(warehouse.longitude)).toBeCloseTo(88.3639);
     expect(warehouse.isActive).toBe(true);
 
-    createdWarehouseIds.push(warehouse.id);
+    expect(warehouse.location).toBeDefined();
+    expect(warehouse.location.inputAddress).toBe(
+      "Salt Lake Sector V, Kolkata"
+    );
+    expect(warehouse.location.formattedAddress).toBe(
+      "Salt Lake Sector V, Kolkata"
+    );
+    expect(warehouse.location.geocodingStatus).toBe("SUCCEEDED");
+    expect(warehouse.location.provider).toBe("MANUAL");
+    expect(Number(warehouse.location.latitude)).toBeCloseTo(22.5726);
+    expect(Number(warehouse.location.longitude)).toBeCloseTo(88.3639);
 
-    // Verify persistence in PostgreSQL.
+    createdWarehouseIds.push(warehouse.id);
+    createdLocationIds.push(warehouse.location.id);
+
+    // Verify warehouse persistence in PostgreSQL.
     const savedWarehouse = await prisma.warehouse.findUnique({
       where: {
         id: warehouse.id
@@ -175,6 +193,18 @@ describe("Warehouse Management API", () => {
     expect(savedWarehouse).not.toBeNull();
     expect(Number(savedWarehouse?.latitude)).toBeCloseTo(22.5726);
     expect(Number(savedWarehouse?.longitude)).toBeCloseTo(88.3639);
+    expect(savedWarehouse?.locationId).toBe(warehouse.location.id);
+
+    // Verify linked Location persistence in PostgreSQL.
+    const savedLocation = await prisma.location.findUnique({
+      where: {
+        id: warehouse.location.id
+      }
+    });
+
+    expect(savedLocation).not.toBeNull();
+    expect(savedLocation?.geocodingStatus).toBe("SUCCEEDED");
+    expect(savedLocation?.provider).toBe("MANUAL");
   });
 
   it("should create a warehouse without coordinates", async () => {
@@ -187,6 +217,7 @@ describe("Warehouse Management API", () => {
       });
 
     expect(response.status).toBe(201);
+    expect(response.body.success).toBe(true);
 
     const warehouse = response.body.data.warehouse;
 
@@ -194,7 +225,25 @@ describe("Warehouse Management API", () => {
     expect(warehouse.longitude).toBeNull();
     expect(warehouse.isActive).toBe(true);
 
+    expect(warehouse.location).toBeDefined();
+    expect(warehouse.location.inputAddress).toBe("New Town, Kolkata");
+    expect(warehouse.location.formattedAddress).toBeNull();
+    expect(warehouse.location.geocodingStatus).toBe("PENDING");
+    expect(warehouse.location.provider).toBeNull();
+    expect(warehouse.location.latitude).toBeNull();
+    expect(warehouse.location.longitude).toBeNull();
+
     createdWarehouseIds.push(warehouse.id);
+    createdLocationIds.push(warehouse.location.id);
+
+    // Verify the relationship in PostgreSQL.
+    const savedWarehouse = await prisma.warehouse.findUnique({
+      where: {
+        id: warehouse.id
+      }
+    });
+
+    expect(savedWarehouse?.locationId).toBe(warehouse.location.id);
   });
 
   it("should reject latitude without longitude", async () => {

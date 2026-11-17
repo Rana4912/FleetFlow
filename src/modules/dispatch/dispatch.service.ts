@@ -15,10 +15,13 @@ import type { ScoredCandidate } from "./dispatch.scoring.js";
 
 import { createAssignment } from "../assignments/assignment.service.js";
 import { AppError, ResourceConflictError } from "../../shared/errors/app-error.js";
+import { deliveryRouteOptimizationService } from "../routing/delivery-route-optimization.dependencies.js";
+import type { RouteOptimizationResult } from "../routing/route-optimizer.service.js";
 
 export interface DispatchRecommendationResult {
   order: DispatchOrder;
   candidates: ScoredCandidate[];
+  routeEstimate: RouteOptimizationResult | null;
 }
 
 export async function getDispatchRecommendations(
@@ -50,9 +53,42 @@ export async function getDispatchRecommendations(
   // 5. Rank candidates (lowest score is best)
   const rankedCandidates = rankCandidates(scoredCandidates);
 
+  // 6. Calculate delivery route when both locations are geocoded
+  let routeEstimate: RouteOptimizationResult | null = null;
+
+  const pickup = eligibility.order.pickupLocation;
+  const delivery = eligibility.order.deliveryLocation;
+
+  if (
+    pickup?.geocodingStatus === "SUCCEEDED" &&
+    delivery?.geocodingStatus === "SUCCEEDED" &&
+    pickup.latitude !== null &&
+    pickup.longitude !== null &&
+    delivery.latitude !== null &&
+    delivery.longitude !== null
+  ) {
+    routeEstimate = await deliveryRouteOptimizationService.optimize([
+      {
+        id: "PICKUP",
+        coordinate: {
+          latitude: pickup.latitude,
+          longitude: pickup.longitude
+        }
+      },
+      {
+        id: "DELIVERY",
+        coordinate: {
+          latitude: delivery.latitude,
+          longitude: delivery.longitude
+        }
+      }
+    ]);
+  }
+
   return {
     order: eligibility.order,
-    candidates: rankedCandidates
+    candidates: rankedCandidates,
+    routeEstimate
   };
 }
 

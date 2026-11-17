@@ -1,13 +1,17 @@
+
 import { prisma } from "../../infrastructure/database/prisma.js";
 import { AppError } from "../../shared/errors/app-error.js";
-import type { CreateOrderInput, UpdateOrderStatusInput } from "./order.schema.js";
-import type { ListOrdersQuery } from "./order.schema.js";
+import type {
+  CreateOrderInput,
+  UpdateOrderStatusInput,
+  ListOrdersQuery
+} from "./order.schema.js";
 
 export async function createOrder(
   userId: string,
   input: CreateOrderInput
 ) {
-  // Find the authenticated user's customer profile.
+  // 1. Find the authenticated user's customer profile.
   const customer = await prisma.customer.findUnique({
     where: {
       userId
@@ -24,19 +28,46 @@ export async function createOrder(
     );
   }
 
-  // Create the delivery order.
+  // 2. Create the order and both locations atomically.
+  // Prisma nested writes guarantee that either all records
+  // are created or none of them are created.
   const order = await prisma.deliveryOrder.create({
     data: {
-      customerId: customer.id,
+      customer: {
+        connect: {
+          id: customer.id
+        }
+      },
+
+      // Preserve the original address snapshots.
       pickupAddress: input.pickupAddress,
       deliveryAddress: input.deliveryAddress,
+
       recipientName: input.recipientName,
       recipientPhone: input.recipientPhone,
       weightKg: input.weightKg,
+
       deadline: input.deadline
         ? new Date(input.deadline)
-        : undefined
+        : undefined,
+
+      // Create pickup Location.
+      pickupLocation: {
+        create: {
+          inputAddress: input.pickupAddress,
+          geocodingStatus: "PENDING" as const
+        }
+      },
+
+      // Create delivery Location.
+      deliveryLocation: {
+        create: {
+          inputAddress: input.deliveryAddress,
+          geocodingStatus: "PENDING" as const
+        }
+      }
     },
+
     select: {
       id: true,
       customerId: true,
@@ -47,7 +78,29 @@ export async function createOrder(
       weightKg: true,
       deadline: true,
       status: true,
-      createdAt: true
+      createdAt: true,
+
+      pickupLocation: {
+        select: {
+          id: true,
+          inputAddress: true,
+          latitude: true,
+          longitude: true,
+          geocodingStatus: true,
+          provider: true
+        }
+      },
+
+      deliveryLocation: {
+        select: {
+          id: true,
+          inputAddress: true,
+          latitude: true,
+          longitude: true,
+          geocodingStatus: true,
+          provider: true
+        }
+      }
     }
   });
 
@@ -64,10 +117,10 @@ export async function getOrderById(
       id: orderId,
       ...(role === "CUSTOMER"
         ? {
-            customer: {
-              userId
-            }
+          customer: {
+            userId
           }
+        }
         : {})
     },
     select: {
@@ -81,7 +134,29 @@ export async function getOrderById(
       deadline: true,
       status: true,
       createdAt: true,
-      updatedAt: true
+      updatedAt: true,
+
+      pickupLocation: {
+        select: {
+          id: true,
+          inputAddress: true,
+          latitude: true,
+          longitude: true,
+          geocodingStatus: true,
+          provider: true
+        }
+      },
+
+      deliveryLocation: {
+        select: {
+          id: true,
+          inputAddress: true,
+          latitude: true,
+          longitude: true,
+          geocodingStatus: true,
+          provider: true
+        }
+      }
     }
   });
 
@@ -106,10 +181,10 @@ export async function listOrders(
   const where = {
     ...(role === "CUSTOMER"
       ? {
-          customer: {
-            userId
-          }
+        customer: {
+          userId
         }
+      }
       : {}),
     ...(status ? { status } : {})
   };
@@ -135,7 +210,25 @@ export async function listOrders(
         deadline: true,
         status: true,
         createdAt: true,
-        updatedAt: true
+        updatedAt: true,
+
+        pickupLocation: {
+          select: {
+            id: true,
+            latitude: true,
+            longitude: true,
+            geocodingStatus: true
+          }
+        },
+
+        deliveryLocation: {
+          select: {
+            id: true,
+            latitude: true,
+            longitude: true,
+            geocodingStatus: true
+          }
+        }
       }
     }),
 
